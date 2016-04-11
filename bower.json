@@ -1,0 +1,21 @@
+{
+  "name": "ds1004-lab9",
+  "homepage": "https://github.com/drewkunas/ds1004-lab9",
+  "authors": [
+    "akunas <drewkunas@gmail.com>"
+  ],
+  "description": "",
+  "main": "",
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "jQuery": "^2.2.3",
+    "d3": "^3.5.16"
+  }
+}
