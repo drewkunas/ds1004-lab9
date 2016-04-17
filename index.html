@@ -1,0 +1,285 @@
+<html>
+<head>
+  <!-- complete your HTML head here -->
+    <script src="bower_components/d3/d3.js" charset="utf-8"></script>
+    <script src="bower_components/jQuery/src/jquery.js" charset="utf-8"></script>
+    
+</head>
+<body>
+<h4 id="hovered">chevrolet chevelle malibu</h4>
+<div class="plot">
+  <svg id="canvas"></svg>
+</div>
+<br>
+<div class="ui">
+  <div>
+    <label>X-Axis</label>
+    <select id="sel-x" onchange="selxfunc(); drawItAll();">
+	<!-- Options filled in in code -->
+    </select>
+    <label>Y-Axis</label>
+    <select id="sel-y" onchange="selyfunc(); drawItAll();">
+	<!-- Options filled in in code -->
+    </select>
+  </div>
+  <div>
+    <input id="mpg-min" type="text" value="0" size="10">
+    <input id="mpg-max" type="text" value="30" size="10">
+    <button id="update" onclick="queryMPGfunc(); drawItAll();">Query MPG</button>
+  </div>
+</div>
+<script src="https://d3js.org/d3.v3.min.js"></script> <!-- backup d3 -->
+
+<script>
+var _non_numeric_columns = ['name', 'origin'];
+var _data_all = []; 
+// load data
+d3.csv("car.csv", 
+	function (d) { // accessor
+		//for (var i = 0; i < numeric_columns.length; i++) {
+		//	d[numeric_columns[i]] = +d[numeric_columns[i]];
+			//Do something
+		//}
+		for (var key in d) {
+		  if (d.hasOwnProperty(key) && (_non_numeric_columns.indexOf(key) == -1) ) {  // make sure not from prototype
+			d[key] = +d[key];
+		  }
+		}
+		//console.log(d); //http://stackoverflow.com/questions/30705733/javascript-d3-reading-from-csv
+		return d;
+	}
+	,
+	function(error, data_here) { // callback
+		console.log("READING CSV");
+		_data_all = data_here;
+		setUp();
+		drawItAll();
+		//console.log(data_all);
+	}
+	);
+
+_column_names = [];
+function setUpDimensionChoices(data) {
+	var column_names_here = new Set([])
+	data.forEach( function(d) {
+			for (var key in d) {
+			  if (d.hasOwnProperty(key) && (_non_numeric_columns.indexOf(key) == -1) ) {  // make sure not from prototype
+				column_names_here.add(key);
+			  }
+			}
+		}
+		)
+	_column_names = Array.from(column_names_here);
+	console.log("COLUMN NAMES" + _column_names);
+	d3.select("#sel-y").selectAll(".option").data(Array.from(_column_names)).enter().append("option").text(function (d){return d;});
+	d3.select("#sel-x").selectAll(".option").data(Array.from(_column_names)).enter().append("option").text(function (d){return d;});
+	return;
+};
+	
+// functions the buttons call are in outermost namespace	
+_x_col="mpg"; _y_col="cylinders";
+selyfunc = function() {
+	var e = document.getElementById("sel-y");
+	_y_col = e.options[e.selectedIndex].text;
+};
+selxfunc = function() {
+	var e = document.getElementById("sel-x");
+	_x_col = e.options[e.selectedIndex].text;
+};
+
+_mpg_min = 0;
+_mpg_max =0;
+_data = [];
+queryMPGfunc = function() {
+		console.log("CHANGING MPG MIN/MAX");
+		_mpg_min = +document.getElementById("mpg-min").value;
+		_mpg_max = +document.getElementById("mpg-max").value;
+		console.log(_mpg_min);
+		console.log(_mpg_max);
+		_data = [];
+		for (var i = 0; i < _data_all.length; i++) {
+			d = _data_all[i];
+			if ( (_mpg_min <= d["mpg"]) && (d["mpg"] <= _mpg_max) ) {
+				_data.push(d);
+			}
+		}
+		//console.log("DATA: " + data);
+	};
+	
+	
+function setUp() {	
+	//set up numeric columns
+	setUpDimensionChoices(_data_all);
+
+	margin = {top: 20, right: 20, bottom: 30, left: 40};
+	width = 300 - margin.left - margin.right;
+	height = 300 - margin.top - margin.bottom;
+
+	selyfunc(); selxfunc(); queryMPGfunc();
+
+	// add the graph canvas to the body of the webpage
+	svg = d3.select("#canvas") //d3.select("body").append("svg")
+		.attr("width", width + margin.left + margin.right)
+		.attr("height", height + margin.top + margin.bottom)
+	  .append("g")
+		.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+	x_axis = svg.append("g")
+		  .attr("class", "x axis")
+		  .attr("stroke", "red")
+		  .attr("transform", "translate(0," + height + ")"); 
+		  //.call(xAxis);// done in draw
+		  
+	x_label = x_axis.append("text")
+		  .attr("class", "label")
+		  .attr("x", width)
+		  .attr("y", -6)
+		  .style("text-anchor", "end");
+	
+	y_axis = svg.append("g")
+		  .attr("stroke", "red")
+		  .attr("fill", "blue")
+		  .attr("class", "y axis");
+		  //.call(yAxis); // done in draw
+
+	y_label = y_axis.append("text")
+		  .attr("class", "label")
+		  .attr("transform", "rotate(-90)")
+		  .attr("y", 6)
+		  .attr("dy", ".71em")
+		  .style("text-anchor", "end");	  
+
+		  }
+
+function drawItAll() {	
+	/* 
+	 * value accessor - returns the value to encode for a given data object.
+	 * scale - maps value to a visual display encoding, such as a pixel position.
+	 * map function - maps from data value to display value
+	 * axis - sets up axis
+	 */ 
+
+	// setup x 
+		xValue = function(d) { return d[_x_col];}; // data -> value
+		xScale = d3.scale.linear().range([0, width]); // value -> display
+		xMap = function(d) { return xScale(xValue(d));}; // data -> display
+		xAxis = d3.svg.axis().scale(xScale).orient("bottom").ticks(5).tickSize(0);
+
+	// setup y
+	    yValue = function(d) { return d[_y_col];}; // data -> value
+		yScale = d3.scale.linear().range([height, 0]); // value -> display
+		yMap = function(d) { return yScale(yValue(d));}; // data -> display
+		yAxis = d3.svg.axis().scale(yScale).orient("left").ticks(5).tickSize(0);//.tickFormat(function(d) {return d[_y_col];});	
+	
+	// setup fill color
+	    cValue = function(d) { return d.Manufacturer;};
+		color = d3.scale.category10();
+
+/*
+	// add the tooltip area to the webpage
+	var tooltip = d3.select("body").append("div")
+		.attr("class", "tooltip")
+		.style("opacity", 0);
+*/
+
+	// don't want dots overlapping axis, so add in buffer to data domain
+	xScale.domain([d3.min(_data, xValue)-1, d3.max(_data, xValue)+1]);
+	yScale.domain([d3.min(_data, yValue)-1, d3.max(_data, yValue)+1]);
+	
+	function customAxis(g) {
+	  g.selectAll("text")
+		  .attr("x", 4)
+		  .attr("dy", -4)
+		  ;
+	}
+	// x-axis
+	x_axis.call(xAxis)
+			//.call(customAxis)
+			;
+	//x_label.text(_x_col);
+
+	// y-axis
+	y_axis.call(yAxis)
+			//.call(customAxis)
+			;
+	//y_label.text(_y_col);
+
+	  // DATA JOIN
+	  // Join new data with old elements, if any.
+	var dots = svg.selectAll(".dot")
+	  .data(_data, function(d) {return d['name'];} )
+	  ;
+	
+	
+	// UPDATE
+    // Update old elements as needed.
+	//dots.nothingtodohere;
+	
+	// ENTER
+  // Create new elements as needed.
+	dots.enter().append("circle");
+	
+	// ENTER + UPDATE
+  // Appending to the enter selection expands the update selection to include
+  // entering elements; so, operations on the update selection after appending to
+  // the enter selection will apply to both entering and updating nodes.
+  	dots.attr("class", "dot")
+	  .attr("r", 3.5)
+	  .attr("r", function(d) {return (  ((_mpg_min <= d["mpg"]) && (d["mpg"] <= _mpg_max)) ? 3.5 : 0.5);})
+	  .style("fill", function(d) { return color(cValue(d));}) 
+	  .on("mouseover", function(d) {
+			d3.select("#hovered").text(d['name']);
+	  })
+	  .on("mouseout", function(d) {
+	  }).transition()
+	  .attr("cx", xMap)
+	  .attr("cy", yMap);
+	
+	   //EXIT
+	  dots.exit().remove();
+
+/*	  
+	// draw legend
+	var legend = svg.selectAll(".legend")
+	  .data(color.domain())
+	.enter().append("g")
+	  .attr("class", "legend")
+	  .attr("transform", function(d, i) { return "translate(0," + i * 20 + ")"; });
+
+	// draw legend colored rectangles
+	legend.append("rect")
+	  .attr("x", width - 18)
+	  .attr("width", 18)
+	  .attr("height", 18)
+	  .style("fill", color);
+
+	// draw legend text
+	legend.append("text")
+	  .attr("x", width - 24)
+	  .attr("y", 9)
+	  .attr("dy", ".35em")
+	  .style("text-anchor", "end")
+	  .text(function(d) { return d;})
+	  */
+};
+
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
+
